@@ -114,7 +114,13 @@ function handlePtz(sessionId: string, from: string, pan: number, tilt: number, z
   }
 }
 
-const wss = new WebSocketServer({ server: httpServer });
+const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) ws.ping();
+  });
+}, 30_000);
 
 wss.on("connection", (socket) => {
   let joined: { sessionId: string; clientId: string } | null = null;

@@ -5,7 +5,7 @@ import { ptzMoved } from "../store/ptzSlice";
 import type { ClientMessage, ServerMessage } from "../types";
 
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-const SIGNALING_URL = `${wsProtocol}//${window.location.host}`;
+const SIGNALING_URL = `${wsProtocol}//${window.location.host}/ws`;
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -21,8 +21,8 @@ export function useWebRTC() {
   const socketRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const localVideoElRef = useRef<HTMLVideoElement | null>(null);
 
-  const [localVideoEl, setLocalVideoEl] = useState<HTMLVideoElement | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [mediaError, setMediaError] = useState<string | null>(null);
 
@@ -30,6 +30,13 @@ export function useWebRTC() {
 
   const send = useCallback((message: ClientMessage) => {
     socketRef.current?.readyState === WebSocket.OPEN && socketRef.current.send(JSON.stringify(message));
+  }, []);
+
+  const setLocalVideoEl = useCallback((el: HTMLVideoElement | null) => {
+    localVideoElRef.current = el;
+    if (el && localStreamRef.current) {
+      el.srcObject = localStreamRef.current;
+    }
   }, []);
 
   const createPeerConnection = useCallback(
@@ -75,10 +82,11 @@ export function useWebRTC() {
 
       try {
         localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        if (localVideoElRef.current) {
+          localVideoElRef.current.srcObject = localStreamRef.current;
+        }
       } catch (err) {
-        setMediaError(
-          err instanceof Error ? `Could not access camera: ${err.message}` : "Could not access camera.",
-        );
+        setMediaError(err instanceof Error ? `Could not access camera: ${err.message}` : "Could not access camera.");
       }
       if (cancelled) return;
 
@@ -161,12 +169,6 @@ export function useWebRTC() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (localVideoEl && localStreamRef.current) {
-      localVideoEl.srcObject = localStreamRef.current;
-    }
-  }, [localVideoEl]);
 
   const sendPtz = useCallback(
     (pan: number, tilt: number, zoom: number) => {
