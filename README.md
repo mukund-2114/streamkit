@@ -16,22 +16,26 @@ A full-stack browser-based video toolkit built with React and TypeScript. Stream
 - **Multi-user sessions** — first visitor becomes the controller; everyone else joins as a read-only spectator via the same URL
 - **HLS adaptive-bitrate playback** — `hls.js` stream with a scrubbable, color-coded recording timeline
 - **PTZ camera controls** — pan, tilt, zoom controls gated by session role and synced to all peers in real time
-- **WebCodecs frame snapshot** — full encode → decode round trip via `VideoEncoder`/`VideoDecoder` with canvas fallback for unsupported browsers
+- **WebCodecs frame snapshot** — full encode → decode round trip via `VideoEncoder`/`VideoDecoder` with canvas fallback
 - **Redux Toolkit state** — typed slices for player, PTZ, and session state
 
-## Deployment
+## Deployment (Render)
 
-The server serves both the WebSocket signaling and the built client files from a single port — one service, one URL.
+The server serves both the WebSocket signaling and the built client files from a single port — one service, one URL, no extra config.
 
-### Railway (recommended)
+### Steps
 
 1. Push this repo to GitHub
-2. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
-3. Select the repo — Railway auto-detects the root `package.json`
-4. Railway runs `npm run build` (builds client + server) then `npm run start`
-5. Your app is live at the generated Railway URL
+2. Go to [render.com](https://render.com) → **New → Web Service**
+3. Connect your GitHub account and select this repo
+4. Render auto-detects `render.yaml` and fills in the settings:
+   - **Build command:** `npm run build`
+   - **Start command:** `npm run start`
+5. Click **Deploy** — Render gives you a URL like `https://streamkit.onrender.com`
 
-Anyone who visits the URL joins the same session automatically — no configuration needed.
+Anyone who visits that URL joins the same session automatically — first visitor becomes **controller**, everyone after is a **spectator**. No configuration needed.
+
+> **Free tier note:** Render's free tier spins the server down after 15 minutes of inactivity. The first visit after a period of inactivity may take ~30 seconds to cold-start. Upgrading to the $7/mo plan keeps it always-on.
 
 ## Running locally
 
@@ -51,13 +55,14 @@ npm run dev        # http://localhost:5173
 
 Open `http://localhost:5173` in two browser tabs: the first tab becomes the **controller**, the second joins as a **spectator**.
 
-> **Browser support**: The WebCodecs snapshot feature requires a Chromium-based browser. Safari falls back to plain canvas capture automatically.
+> **Browser support:** The WebCodecs snapshot feature requires a Chromium-based browser. Safari falls back to plain canvas capture automatically.
 
 ## Project structure
 
 ```
 streamkit/
-├── package.json            # Root build + start scripts (for Railway)
+├── package.json            # Root build + start scripts (used by Render)
+├── render.yaml             # Render deployment config
 ├── client/
 │   └── src/
 │       ├── components/
