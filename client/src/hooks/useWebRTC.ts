@@ -36,6 +36,7 @@ export function useWebRTC() {
     localVideoElRef.current = el;
     if (el && localStreamRef.current) {
       el.srcObject = localStreamRef.current;
+      el.play().catch(() => {});
     }
   }, []);
 
@@ -81,9 +82,10 @@ export function useWebRTC() {
       dispatch(connectionStatusChanged("connecting"));
 
       try {
-        localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         if (localVideoElRef.current) {
           localVideoElRef.current.srcObject = localStreamRef.current;
+          localVideoElRef.current.play().catch(() => {});
         }
       } catch (err) {
         setMediaError(err instanceof Error ? `Could not access camera: ${err.message}` : "Could not access camera.");

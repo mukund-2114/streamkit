@@ -6,7 +6,14 @@ import PTZControls from "./PTZControls";
 export default function WebRTCPanel() {
   const { setLocalVideoEl, remoteStreams, mediaError, isController, sendPtz } = useWebRTC();
   const connectionStatus = useAppSelector((s) => s.session.connectionStatus);
+  const { pan, tilt, zoom } = useAppSelector((s) => s.ptz);
   const remoteVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+
+  const ptzStyle: React.CSSProperties = {
+    transform: `scale(${zoom}) translate(${pan * 0.3}%, ${-tilt * 0.3}%)`,
+    transformOrigin: "center",
+    transition: "transform 0.15s ease",
+  };
 
   return (
     <section className="panel">
@@ -20,7 +27,7 @@ export default function WebRTCPanel() {
 
       <div className="video-grid">
         <div className="video-tile">
-          <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" />
+          <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" style={ptzStyle} />
           <span className="video-label">You {isController ? "(controller)" : "(spectator)"}</span>
         </div>
 
@@ -29,11 +36,15 @@ export default function WebRTCPanel() {
             <video
               ref={(el) => {
                 remoteVideoRefs.current[id] = el;
-                if (el && el.srcObject !== stream) el.srcObject = stream;
+                if (el && el.srcObject !== stream) {
+                  el.srcObject = stream;
+                  el.play().catch(() => {});
+                }
               }}
               autoPlay
               playsInline
               className="video-el"
+              style={ptzStyle}
             />
             <span className="video-label">Peer {id}</span>
           </div>
