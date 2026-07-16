@@ -3,6 +3,53 @@ import { useWebRTC } from "../hooks/useWebRTC";
 import { useAppSelector } from "../store/hooks";
 import PTZControls from "./PTZControls";
 
+const MicOnIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="8" y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
+const MicOffIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/>
+    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="8" y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
+const CamOnIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="23 7 16 12 23 17 23 7"/>
+    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+  </svg>
+);
+
+const CamOffIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M7 7H1v10a2 2 0 0 0 2 2h14"/>
+    <path d="M9.5 5H16a2 2 0 0 1 2 2v7.5"/>
+    <polygon points="23 7 16 12 23 17 23 7"/>
+  </svg>
+);
+
+const ExpandIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+  </svg>
+);
+
+const CompressIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>
+  </svg>
+);
+
 export default function WebRTCPanel() {
   const {
     setLocalVideoEl,
@@ -73,9 +120,7 @@ export default function WebRTCPanel() {
           <div className="video-grid">
             <div className="video-tile">
               <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" style={ptzStyle} />
-              {!isVideoEnabled && (
-                <div className="video-off-overlay">Camera off</div>
-              )}
+              {!isVideoEnabled && <div className="video-off-overlay">Camera off</div>}
               <span className="video-label">
                 You {isController ? "(controller)" : "(spectator)"}
                 {!isAudioEnabled && " · muted"}
@@ -106,10 +151,10 @@ export default function WebRTCPanel() {
             <button
               className={`media-btn ${isAudioEnabled ? "media-btn--on" : "media-btn--off"}`}
               onClick={toggleAudio}
-              title={isAudioEnabled ? "Mute mic" : "Unmute mic"}
+              title={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
               aria-label={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
             >
-              {isAudioEnabled ? "🎤" : "🔇"}
+              {isAudioEnabled ? <MicOnIcon /> : <MicOffIcon />}
             </button>
             <button
               className={`media-btn ${isVideoEnabled ? "media-btn--on" : "media-btn--off"}`}
@@ -117,7 +162,7 @@ export default function WebRTCPanel() {
               title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
               aria-label={isVideoEnabled ? "Disable camera" : "Enable camera"}
             >
-              {isVideoEnabled ? "📷" : "📵"}
+              {isVideoEnabled ? <CamOnIcon /> : <CamOffIcon />}
             </button>
             <button
               className="media-btn media-btn--on"
@@ -125,7 +170,7 @@ export default function WebRTCPanel() {
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
               aria-label="Toggle fullscreen"
             >
-              {isFullscreen ? "↙" : "↗"}
+              {isFullscreen ? <CompressIcon /> : <ExpandIcon />}
             </button>
           </div>
 
@@ -156,9 +201,7 @@ export default function WebRTCPanel() {
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               maxLength={300}
             />
-            <button onClick={handleSend} disabled={!chatInput.trim()}>
-              Send
-            </button>
+            <button onClick={handleSend} disabled={!chatInput.trim()}>Send</button>
           </div>
         </div>
       </div>
