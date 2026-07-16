@@ -27,3 +27,12 @@ export interface TimelineSegment {
   endSeconds: number;
   state: SegmentState;
 }
+
+export interface ChatMessage {
+  id: string;
+  from: string;
+  text: string;
+  fromSelf: boolean;
+  timestamp: number;
+}
+

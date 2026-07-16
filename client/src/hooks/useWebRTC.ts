@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { connectionStatusChanged, sessionStateReceived } from "../store/sessionSlice";
 import { ptzMoved } from "../store/ptzSlice";
-import type { ClientMessage, ServerMessage } from "../types";
+import type { ClientMessage, ServerMessage, ChatMessage } from "../types";
 
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const SIGNALING_URL = `${wsProtocol}//${window.location.host}/ws`;
@@ -20,11 +20,15 @@ export function useWebRTC() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const dataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const localVideoElRef = useRef<HTMLVideoElement | null>(null);
 
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const isController = controllerId === clientId;
 
@@ -39,6 +43,48 @@ export function useWebRTC() {
       el.play().catch(() => {});
     }
   }, []);
+
+  const toggleVideo = useCallback(() => {
+    localStreamRef.current?.getVideoTracks().forEach((t) => {
+      t.enabled = !t.enabled;
+    });
+    setIsVideoEnabled((prev) => !prev);
+  }, []);
+
+  const toggleAudio = useCallback(() => {
+    localStreamRef.current?.getAudioTracks().forEach((t) => {
+      t.enabled = !t.enabled;
+    });
+    setIsAudioEnabled((prev) => !prev);
+  }, []);
+
+  const setupDataChannel = useCallback((dc: RTCDataChannel, remoteClientId: string) => {
+    dc.onopen = () => dataChannelsRef.current.set(remoteClientId, dc);
+    dc.onclose = () => dataChannelsRef.current.delete(remoteClientId);
+    dc.onmessage = (event) => {
+      const msg: ChatMessage = JSON.parse(event.data);
+      setChatMessages((prev) => [...prev, msg]);
+    };
+  }, []);
+
+  const sendChatMessage = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
+      const msg: ChatMessage = {
+        id: crypto.randomUUID(),
+        from: displayName,
+        text: text.trim(),
+        fromSelf: true,
+        timestamp: Date.now(),
+      };
+      setChatMessages((prev) => [...prev, msg]);
+      const payload = JSON.stringify({ ...msg, fromSelf: false });
+      dataChannelsRef.current.forEach((dc) => {
+        if (dc.readyState === "open") dc.send(payload);
+      });
+    },
+    [displayName],
+  );
 
   const createPeerConnection = useCallback(
     (remoteClientId: string) => {
@@ -58,9 +104,14 @@ export function useWebRTC() {
         setRemoteStreams((prev) => ({ ...prev, [remoteClientId]: event.streams[0] }));
       };
 
+      pc.ondatachannel = (event) => {
+        setupDataChannel(event.channel, remoteClientId);
+      };
+
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "closed" || pc.connectionState === "failed") {
           peersRef.current.delete(remoteClientId);
+          dataChannelsRef.current.delete(remoteClientId);
           setRemoteStreams((prev) => {
             const next = { ...prev };
             delete next[remoteClientId];
@@ -72,7 +123,7 @@ export function useWebRTC() {
       peersRef.current.set(remoteClientId, pc);
       return pc;
     },
-    [clientId, send, sessionId],
+    [clientId, send, sessionId, setupDataChannel],
   );
 
   useEffect(() => {
@@ -113,6 +164,8 @@ export function useWebRTC() {
 
           case "peer-joined": {
             const pc = createPeerConnection(message.clientId);
+            const dc = pc.createDataChannel("chat");
+            setupDataChannel(dc, message.clientId);
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             send({ type: "signal", sessionId, to: message.clientId, from: clientId, data: { sdp: offer } });
@@ -140,6 +193,7 @@ export function useWebRTC() {
           case "peer-left": {
             peersRef.current.get(message.clientId)?.close();
             peersRef.current.delete(message.clientId);
+            dataChannelsRef.current.delete(message.clientId);
             setRemoteStreams((prev) => {
               const next = { ...prev };
               delete next[message.clientId];
@@ -167,6 +221,7 @@ export function useWebRTC() {
       socketRef.current?.close();
       peersRef.current.forEach((pc) => pc.close());
       peersRef.current.clear();
+      dataChannelsRef.current.clear();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,5 +240,11 @@ export function useWebRTC() {
     mediaError,
     isController,
     sendPtz,
+    isVideoEnabled,
+    isAudioEnabled,
+    toggleVideo,
+    toggleAudio,
+    chatMessages,
+    sendChatMessage,
   };
 }
