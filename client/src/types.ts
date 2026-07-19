@@ -10,6 +10,7 @@ export type ClientMessage =
   | { type: "join"; sessionId: string; clientId: string; displayName: string }
   | { type: "signal"; sessionId: string; to: string; from: string; data: unknown }
   | { type: "ptz"; sessionId: string; from: string; pan: number; tilt: number; zoom: number }
+  | { type: "transfer-admin"; sessionId: string; targetClientId: string }
   | { type: "leave"; sessionId: string; clientId: string };
 
 export type ServerMessage =
@@ -32,6 +33,7 @@ export interface ChatMessage {
   id: string;
   from: string;
   text: string;
+  imageUrl?: string;
   fromSelf: boolean;
   timestamp: number;
 }

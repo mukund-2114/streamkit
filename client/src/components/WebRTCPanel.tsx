@@ -57,6 +57,37 @@ const ChatIcon = () => (
   </svg>
 );
 
+const ImageIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+    <circle cx="8.5" cy="8.5" r="1.5"/>
+    <polyline points="21 15 16 10 5 21"/>
+  </svg>
+);
+
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const scale = MAX_WIDTH / Math.max(img.width, 1);
+        canvas.width = img.width * Math.min(1, scale);
+        canvas.height = img.height * Math.min(1, scale);
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.onerror = reject;
+      if (e.target?.result) img.src = e.target.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function WebRTCPanel() {
   const {
     setLocalVideoEl,
@@ -73,6 +104,7 @@ export default function WebRTCPanel() {
     typingUsers,
     sendTyping,
     remoteMediaStates,
+    transferAdmin,
   } = useWebRTC();
 
   const typingTimeoutRef = useRef<number | null>(null);
@@ -84,6 +116,7 @@ export default function WebRTCPanel() {
   const remoteVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const panelRef = useRef<HTMLElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const touchState = useRef({
     initialDistance: 0,
@@ -208,11 +241,24 @@ export default function WebRTCPanel() {
   }, []);
 
   const handleSend = useCallback(() => {
+    if (!chatInput.trim()) return;
     sendChatMessage(chatInput);
     setChatInput("");
     sendTyping(false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
   }, [chatInput, sendChatMessage, sendTyping]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressImage(file);
+      sendChatMessage("", dataUrl);
+    } catch (err) {
+      console.error("Failed to compress image", err);
+    }
+    e.target.value = "";
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChatInput(e.target.value);
@@ -279,6 +325,15 @@ export default function WebRTCPanel() {
                       </svg>
                       Camera off
                     </div>
+                  )}
+                  {isAdmin && (
+                    <button 
+                      className="make-admin-btn"
+                      onClick={() => transferAdmin(id)}
+                      style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', border: '1px solid #3fae5c', color: '#3fae5c', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', zIndex: 10 }}
+                    >
+                      Make Admin
+                    </button>
                   )}
                   <span className="video-label" style={{ display: 'flex', alignItems: 'center' }}>
                     {displayName}
@@ -347,7 +402,10 @@ export default function WebRTCPanel() {
               {chatMessages.map((msg) => (
                 <div key={msg.id} className={`chat-msg ${msg.fromSelf ? "chat-msg--self" : "chat-msg--other"}`}>
                   {!msg.fromSelf && <span className="chat-from">{msg.from}</span>}
-                  <span className="chat-text">{msg.text}</span>
+                  {msg.imageUrl && (
+                    <img src={msg.imageUrl} alt="chat attachment" style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }} />
+                  )}
+                  {msg.text && <span className="chat-text">{msg.text}</span>}
                   <span className="chat-time">{formatTime(msg.timestamp)}</span>
                 </div>
               ))}
@@ -357,6 +415,21 @@ export default function WebRTCPanel() {
               {typingUsers.length > 0 && `${typingUsers.join(", ")} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`}
             </div>
             <div className="chat-input-row">
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                style={{ padding: '8px', display: 'flex', alignItems: 'center', background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                title="Send Image"
+                aria-label="Send Image"
+              >
+                <ImageIcon />
+              </button>
               <input
                 type="text"
                 placeholder="Send a message…"

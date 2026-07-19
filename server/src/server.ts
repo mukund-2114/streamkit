@@ -114,6 +114,21 @@ function handlePtz(sessionId: string, from: string, pan: number, tilt: number, z
   }
 }
 
+function handleTransferAdmin(sessionId: string, from: string, targetClientId: string) {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+
+  const sender = session.get(from);
+  if (sender?.role === "admin") {
+    const target = session.get(targetClientId);
+    if (target) {
+      sender.role = "viewer";
+      target.role = "admin";
+      broadcastSessionState(sessionId);
+    }
+  }
+}
+
 const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
 setInterval(() => {
@@ -144,6 +159,9 @@ wss.on("connection", (socket) => {
         break;
       case "ptz":
         handlePtz(message.sessionId, message.from, message.pan, message.tilt, message.zoom);
+        break;
+      case "transfer-admin":
+        if (joined) handleTransferAdmin(message.sessionId, joined.clientId, message.targetClientId);
         break;
       case "leave":
         handleLeave(message.sessionId, message.clientId);

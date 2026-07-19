@@ -106,12 +106,13 @@ export function useWebRTC() {
   }, []);
 
   const sendChatMessage = useCallback(
-    (text: string) => {
-      if (!text.trim()) return;
+    (text: string, imageUrl?: string) => {
+      if (!text.trim() && !imageUrl) return;
       const msg: ChatMessage = {
         id: crypto.randomUUID(),
         from: displayName,
         text: text.trim(),
+        imageUrl,
         fromSelf: true,
         timestamp: Date.now(),
       };
@@ -282,6 +283,10 @@ export function useWebRTC() {
     [clientId, send, sessionId],
   );
 
+  const transferAdmin = useCallback((targetClientId: string) => {
+    send({ type: "transfer-admin", sessionId, targetClientId });
+  }, [send, sessionId]);
+
   return {
     setLocalVideoEl,
     remoteStreams,
@@ -297,5 +302,6 @@ export function useWebRTC() {
     typingUsers,
     sendTyping,
     remoteMediaStates,
+    transferAdmin,
   };
 }
