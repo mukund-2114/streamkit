@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useWebRTC } from "../hooks/useWebRTC";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
-import { ptzNudged } from "../store/ptzSlice";
+import { ptzNudged, ptzReset } from "../store/ptzSlice";
 import PTZControls from "./PTZControls";
 
 const MicOnIcon = () => (
@@ -51,6 +51,12 @@ const CompressIcon = () => (
   </svg>
 );
 
+const ChatIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+  </svg>
+);
+
 export default function WebRTCPanel() {
   const {
     setLocalVideoEl,
@@ -87,10 +93,17 @@ export default function WebRTCPanel() {
     isPanning: false
   });
   const ptzRef = useRef({ pan, tilt, zoom });
+  const lastTapRef = useRef(0);
   
   useEffect(() => {
     ptzRef.current = { pan, tilt, zoom };
   }, [pan, tilt, zoom]);
+
+  const handleDoubleClick = () => {
+    if (!isAdmin) return;
+    dispatch(ptzReset());
+    sendPtz(0, 0, 1);
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!isAdmin) return;
@@ -101,6 +114,11 @@ export default function WebRTCPanel() {
       touchState.current.initialZoom = ptzRef.current.zoom;
       touchState.current.isPanning = false;
     } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        handleDoubleClick();
+      }
+      lastTapRef.current = now;
       touchState.current.lastX = e.touches[0].clientX;
       touchState.current.lastY = e.touches[0].clientY;
       touchState.current.isPanning = true;
@@ -150,6 +168,7 @@ export default function WebRTCPanel() {
 
   const [chatInput, setChatInput] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const ptzStyle: React.CSSProperties = {
     transform: `scale(${zoom}) translate(${pan * 0.3}%, ${-tilt * 0.3}%)`,
@@ -161,6 +180,19 @@ export default function WebRTCPanel() {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isHidden = document.visibilityState === "hidden";
+      Object.values(remoteVideoRefs.current).forEach((videoEl) => {
+        if (videoEl) {
+          videoEl.muted = isHidden;
+        }
+      });
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   useEffect(() => {
@@ -201,7 +233,7 @@ export default function WebRTCPanel() {
 
       {mediaError && <p className="error-text">{mediaError}</p>}
 
-      <div className="webrtc-body">
+      <div className="webrtc-body" style={!isChatOpen ? { gridTemplateColumns: "1fr" } : {}}>
         <div className="webrtc-main">
           <div 
             className="video-grid"
@@ -209,6 +241,7 @@ export default function WebRTCPanel() {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
+            onDoubleClick={handleDoubleClick}
             style={{ touchAction: isAdmin ? 'none' : 'auto' }}
           >
             <div className="video-tile">
@@ -283,6 +316,15 @@ export default function WebRTCPanel() {
               {isVideoEnabled ? <CamOnIcon /> : <CamOffIcon />}
             </button>
             <button
+              className={`media-btn ${isChatOpen ? "media-btn--on" : "media-btn--off"}`}
+              style={!isChatOpen ? { background: '#2a3347', color: 'var(--text)' } : {}}
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              title={isChatOpen ? "Close chat" : "Open chat"}
+              aria-label="Toggle chat"
+            >
+              <ChatIcon />
+            </button>
+            <button
               className="media-btn media-btn--on"
               onClick={handleFullscreen}
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -295,36 +337,38 @@ export default function WebRTCPanel() {
           <PTZControls enabled={isAdmin} onMove={sendPtz} />
         </div>
 
-        <div className="chat-panel">
-          <div className="chat-header">Chat</div>
-          <div className="chat-messages">
-            {chatMessages.length === 0 && (
-              <p className="chat-empty">No messages yet — say hello!</p>
-            )}
-            {chatMessages.map((msg) => (
-              <div key={msg.id} className={`chat-msg ${msg.fromSelf ? "chat-msg--self" : "chat-msg--other"}`}>
-                {!msg.fromSelf && <span className="chat-from">{msg.from}</span>}
-                <span className="chat-text">{msg.text}</span>
-                <span className="chat-time">{formatTime(msg.timestamp)}</span>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
+        {isChatOpen && (
+          <div className="chat-panel">
+            <div className="chat-header">Chat</div>
+            <div className="chat-messages">
+              {chatMessages.length === 0 && (
+                <p className="chat-empty">No messages yet — say hello!</p>
+              )}
+              {chatMessages.map((msg) => (
+                <div key={msg.id} className={`chat-msg ${msg.fromSelf ? "chat-msg--self" : "chat-msg--other"}`}>
+                  {!msg.fromSelf && <span className="chat-from">{msg.from}</span>}
+                  <span className="chat-text">{msg.text}</span>
+                  <span className="chat-time">{formatTime(msg.timestamp)}</span>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="typing-indicator" style={{ minHeight: "20px", padding: "0.25rem 1rem", fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic", display: "flex", alignItems: "center" }}>
+              {typingUsers.length > 0 && `${typingUsers.join(", ")} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`}
+            </div>
+            <div className="chat-input-row">
+              <input
+                type="text"
+                placeholder="Send a message…"
+                value={chatInput}
+                onChange={handleInputChange}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                maxLength={300}
+              />
+              <button onClick={handleSend} disabled={!chatInput.trim()}>Send</button>
+            </div>
           </div>
-          <div className="typing-indicator" style={{ minHeight: "20px", padding: "0.25rem 1rem", fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic", display: "flex", alignItems: "center" }}>
-            {typingUsers.length > 0 && `${typingUsers.join(", ")} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`}
-          </div>
-          <div className="chat-input-row">
-            <input
-              type="text"
-              placeholder="Send a message…"
-              value={chatInput}
-              onChange={handleInputChange}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              maxLength={300}
-            />
-            <button onClick={handleSend} disabled={!chatInput.trim()}>Send</button>
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );
