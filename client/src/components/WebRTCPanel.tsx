@@ -135,10 +135,8 @@ export default function WebRTCPanel() {
           <div className="video-grid">
             <div className="video-tile">
               <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" style={ptzStyle} />
-              {!isVideoEnabled && <div className="video-off-overlay">Camera off</div>}
               <span className="video-label">
                 You {isAdmin ? "(admin)" : "(viewer)"}
-                {!isAudioEnabled && " · muted"}
               </span>
             </div>
 
