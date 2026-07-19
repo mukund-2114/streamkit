@@ -11,6 +11,7 @@ export type ClientMessage =
   | { type: "signal"; sessionId: string; to: string; from: string; data: unknown }
   | { type: "ptz"; sessionId: string; from: string; pan: number; tilt: number; zoom: number }
   | { type: "transfer-admin"; sessionId: string; targetClientId: string }
+  | { type: "claim-admin"; sessionId: string; secret: string }
   | { type: "leave"; sessionId: string; clientId: string };
 
 export type ServerMessage =

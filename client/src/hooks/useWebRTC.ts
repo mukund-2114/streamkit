@@ -310,6 +310,10 @@ export function useWebRTC() {
     send({ type: "transfer-admin", sessionId, targetClientId });
   }, [send, sessionId]);
 
+  const claimAdmin = useCallback((secret: string) => {
+    send({ type: "claim-admin", sessionId, secret });
+  }, [send, sessionId]);
+
   return {
     setLocalVideoEl,
     remoteStreams,
@@ -326,5 +330,6 @@ export function useWebRTC() {
     sendTyping,
     remoteMediaStates,
     transferAdmin,
+    claimAdmin,
   };
 }

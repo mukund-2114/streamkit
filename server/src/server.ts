@@ -129,6 +129,22 @@ function handleTransferAdmin(sessionId: string, from: string, targetClientId: st
   }
 }
 
+function handleClaimAdmin(sessionId: string, clientId: string, secret: string) {
+  if (secret !== "admin123") return;
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  
+  for (const conn of session.values()) {
+    if (conn.role === "admin") conn.role = "viewer";
+  }
+  
+  const sender = session.get(clientId);
+  if (sender) {
+    sender.role = "admin";
+    broadcastSessionState(sessionId);
+  }
+}
+
 const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
 setInterval(() => {
@@ -162,6 +178,9 @@ wss.on("connection", (socket) => {
         break;
       case "transfer-admin":
         if (joined) handleTransferAdmin(message.sessionId, joined.clientId, message.targetClientId);
+        break;
+      case "claim-admin":
+        if (joined) handleClaimAdmin(message.sessionId, joined.clientId, message.secret);
         break;
       case "leave":
         handleLeave(message.sessionId, message.clientId);
