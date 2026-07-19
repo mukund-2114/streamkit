@@ -11,6 +11,28 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 };
 
+const playJoinSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (err) {
+    console.warn("Could not play join sound:", err);
+  }
+};
+
 export function useWebRTC() {
   const dispatch = useAppDispatch();
   const clientId = useAppSelector((s) => s.session.clientId);
@@ -212,6 +234,7 @@ export function useWebRTC() {
             break;
 
           case "peer-joined": {
+            playJoinSound();
             const pc = createPeerConnection(message.clientId);
             const dc = pc.createDataChannel("chat");
             setupDataChannel(dc, message.clientId);
