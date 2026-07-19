@@ -1,4 +1,4 @@
-export type Role = "controller" | "spectator";
+export type Role = "admin" | "viewer";
 
 export interface Participant {
   clientId: string;
@@ -13,7 +13,7 @@ export type ClientMessage =
   | { type: "leave"; sessionId: string; clientId: string };
 
 export type ServerMessage =
-  | { type: "session-state"; sessionId: string; participants: Participant[]; controllerId: string | null }
+  | { type: "session-state"; sessionId: string; participants: Participant[]; adminId: string | null }
   | { type: "peer-joined"; clientId: string }
   | { type: "peer-left"; clientId: string }
   | { type: "signal"; from: string; data: unknown }

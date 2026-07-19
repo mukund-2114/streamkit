@@ -55,7 +55,7 @@ export default function WebRTCPanel() {
     setLocalVideoEl,
     remoteStreams,
     mediaError,
-    isController,
+    isAdmin,
     sendPtz,
     isVideoEnabled,
     isAudioEnabled,
@@ -65,7 +65,8 @@ export default function WebRTCPanel() {
     sendChatMessage,
   } = useWebRTC();
 
-  const connectionStatus = useAppSelector((s) => s.session.connectionStatus);
+  const session = useAppSelector((s) => s.session);
+  const connectionStatus = session.connectionStatus;
   const { pan, tilt, zoom } = useAppSelector((s) => s.ptz);
   const remoteVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const panelRef = useRef<HTMLElement>(null);
@@ -122,29 +123,33 @@ export default function WebRTCPanel() {
               <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" style={ptzStyle} />
               {!isVideoEnabled && <div className="video-off-overlay">Camera off</div>}
               <span className="video-label">
-                You {isController ? "(controller)" : "(spectator)"}
+                You {isAdmin ? "(admin)" : "(viewer)"}
                 {!isAudioEnabled && " · muted"}
               </span>
             </div>
 
-            {Object.entries(remoteStreams).map(([id, stream]) => (
-              <div className="video-tile" key={id}>
-                <video
-                  ref={(el) => {
-                    remoteVideoRefs.current[id] = el;
-                    if (el && el.srcObject !== stream) {
-                      el.srcObject = stream;
-                      el.play().catch(() => {});
-                    }
-                  }}
-                  autoPlay
-                  playsInline
-                  className="video-el"
-                  style={ptzStyle}
-                />
-                <span className="video-label">Peer {id.slice(-4)}</span>
-              </div>
-            ))}
+            {Object.entries(remoteStreams).map(([id, stream]) => {
+              const participant = session.participants.find(p => p.clientId === id);
+              const displayName = participant ? participant.displayName : `Peer ${id.slice(-4)}`;
+              return (
+                <div className="video-tile" key={id}>
+                  <video
+                    ref={(el) => {
+                      remoteVideoRefs.current[id] = el;
+                      if (el && el.srcObject !== stream) {
+                        el.srcObject = stream;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    className="video-el"
+                    style={ptzStyle}
+                  />
+                  <span className="video-label">{displayName}</span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="media-controls">
@@ -174,7 +179,7 @@ export default function WebRTCPanel() {
             </button>
           </div>
 
-          <PTZControls enabled={isController} onMove={sendPtz} />
+          <PTZControls enabled={isAdmin} onMove={sendPtz} />
         </div>
 
         <div className="chat-panel">

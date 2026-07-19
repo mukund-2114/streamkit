@@ -16,7 +16,7 @@ export function useWebRTC() {
   const clientId = useAppSelector((s) => s.session.clientId);
   const displayName = useAppSelector((s) => s.session.displayName);
   const sessionId = useAppSelector((s) => s.session.sessionId);
-  const controllerId = useAppSelector((s) => s.session.controllerId);
+  const adminId = useAppSelector((s) => s.session.adminId);
 
   const socketRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -30,7 +30,7 @@ export function useWebRTC() {
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-  const isController = controllerId === clientId;
+  const isAdmin = adminId === clientId;
 
   const send = useCallback((message: ClientMessage) => {
     socketRef.current?.readyState === WebSocket.OPEN && socketRef.current.send(JSON.stringify(message));
@@ -159,7 +159,7 @@ export function useWebRTC() {
 
         switch (message.type) {
           case "session-state":
-            dispatch(sessionStateReceived({ participants: message.participants, controllerId: message.controllerId }));
+            dispatch(sessionStateReceived({ participants: message.participants, adminId: message.adminId }));
             break;
 
           case "peer-joined": {
@@ -238,7 +238,7 @@ export function useWebRTC() {
     setLocalVideoEl,
     remoteStreams,
     mediaError,
-    isController,
+    isAdmin,
     sendPtz,
     isVideoEnabled,
     isAudioEnabled,

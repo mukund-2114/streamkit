@@ -5,9 +5,10 @@ interface SessionState {
   clientId: string;
   sessionId: string;
   displayName: string;
+  hasJoined: boolean;
   connectionStatus: "idle" | "connecting" | "connected" | "disconnected";
   participants: Participant[];
-  controllerId: string | null;
+  adminId: string | null;
 }
 
 function randomId(prefix: string): string {
@@ -17,10 +18,11 @@ function randomId(prefix: string): string {
 const initialState: SessionState = {
   clientId: randomId("client"),
   sessionId: "demo-room",
-  displayName: randomId("viewer"),
+  displayName: "",
+  hasJoined: false,
   connectionStatus: "idle",
   participants: [],
-  controllerId: null,
+  adminId: null,
 };
 
 const sessionSlice = createSlice({
@@ -32,16 +34,20 @@ const sessionSlice = createSlice({
     },
     sessionStateReceived(
       state,
-      action: PayloadAction<{ participants: Participant[]; controllerId: string | null }>,
+      action: PayloadAction<{ participants: Participant[]; adminId: string | null }>,
     ) {
       state.participants = action.payload.participants;
-      state.controllerId = action.payload.controllerId;
+      state.adminId = action.payload.adminId;
     },
     sessionIdChanged(state, action: PayloadAction<string>) {
       state.sessionId = action.payload;
     },
+    joinSession(state, action: PayloadAction<string>) {
+      state.displayName = action.payload;
+      state.hasJoined = true;
+    },
   },
 });
 
-export const { connectionStatusChanged, sessionStateReceived, sessionIdChanged } = sessionSlice.actions;
+export const { connectionStatusChanged, sessionStateReceived, sessionIdChanged, joinSession } = sessionSlice.actions;
 export default sessionSlice.reducer;

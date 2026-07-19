@@ -39,13 +39,13 @@ function broadcastSessionState(sessionId: string) {
     role: c.role,
     displayName: c.displayName,
   }));
-  const controller = participants.find((p) => p.role === "controller");
+  const admin = participants.find((p) => p.role === "admin");
 
   const message: ServerMessage = {
     type: "session-state",
     sessionId,
     participants,
-    controllerId: controller?.clientId ?? null,
+    adminId: admin?.clientId ?? null,
   };
 
   for (const conn of session.values()) send(conn.socket, message);
@@ -58,7 +58,7 @@ function handleJoin(sessionId: string, clientId: string, displayName: string, so
     sessions.set(sessionId, session);
   }
 
-  const role: Role = session.size === 0 ? "controller" : "spectator";
+  const role: Role = session.size === 0 ? "admin" : "viewer";
   session.set(clientId, { clientId, displayName, role, socket });
 
   for (const conn of session.values()) {
@@ -74,7 +74,7 @@ function handleLeave(sessionId: string, clientId: string) {
   const session = sessions.get(sessionId);
   if (!session) return;
 
-  const wasController = session.get(clientId)?.role === "controller";
+  const wasAdmin = session.get(clientId)?.role === "admin";
   session.delete(clientId);
 
   if (session.size === 0) {
@@ -82,9 +82,9 @@ function handleLeave(sessionId: string, clientId: string) {
     return;
   }
 
-  if (wasController) {
+  if (wasAdmin) {
     const next = session.values().next().value as Connection | undefined;
-    if (next) next.role = "controller";
+    if (next) next.role = "admin";
   }
 
   for (const conn of session.values()) {
@@ -104,8 +104,8 @@ function handlePtz(sessionId: string, from: string, pan: number, tilt: number, z
   if (!session) return;
 
   const sender = session.get(from);
-  if (!sender || sender.role !== "controller") {
-    if (sender) send(sender.socket, { type: "error", message: "Only the controller can send PTZ commands." });
+  if (!sender || sender.role !== "admin") {
+    if (sender) send(sender.socket, { type: "error", message: "Only the admin can send PTZ commands." });
     return;
   }
 
