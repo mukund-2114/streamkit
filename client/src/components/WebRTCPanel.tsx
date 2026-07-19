@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useWebRTC } from "../hooks/useWebRTC";
-import { useAppSelector } from "../store/hooks";
+import { useAppSelector, useAppDispatch } from "../store/hooks";
+import { ptzNudged } from "../store/ptzSlice";
 import PTZControls from "./PTZControls";
 
 const MicOnIcon = () => (
@@ -70,12 +71,82 @@ export default function WebRTCPanel() {
 
   const typingTimeoutRef = useRef<number | null>(null);
 
+  const dispatch = useAppDispatch();
   const session = useAppSelector((s) => s.session);
   const connectionStatus = session.connectionStatus;
   const { pan, tilt, zoom } = useAppSelector((s) => s.ptz);
   const remoteVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const panelRef = useRef<HTMLElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const touchState = useRef({
+    initialDistance: 0,
+    initialZoom: 1,
+    lastX: 0,
+    lastY: 0,
+    isPanning: false
+  });
+  const ptzRef = useRef({ pan, tilt, zoom });
+  
+  useEffect(() => {
+    ptzRef.current = { pan, tilt, zoom };
+  }, [pan, tilt, zoom]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isAdmin) return;
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchState.current.initialDistance = Math.hypot(dx, dy);
+      touchState.current.initialZoom = ptzRef.current.zoom;
+      touchState.current.isPanning = false;
+    } else if (e.touches.length === 1) {
+      touchState.current.lastX = e.touches[0].clientX;
+      touchState.current.lastY = e.touches[0].clientY;
+      touchState.current.isPanning = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isAdmin) return;
+    
+    if (e.touches.length === 2 && touchState.current.initialDistance > 0) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const deltaZoom = (dist - touchState.current.initialDistance) * 0.01;
+      
+      const targetZoom = Math.min(3, Math.max(1, touchState.current.initialZoom + deltaZoom));
+      const currentZoom = ptzRef.current.zoom;
+      const dZoom = targetZoom - currentZoom;
+      
+      if (Math.abs(dZoom) > 0.02) {
+        dispatch(ptzNudged({ dPan: 0, dTilt: 0, dZoom }));
+        sendPtz(ptzRef.current.pan, ptzRef.current.tilt, targetZoom);
+      }
+    } else if (e.touches.length === 1 && touchState.current.isPanning) {
+      const dx = e.touches[0].clientX - touchState.current.lastX;
+      const dy = e.touches[0].clientY - touchState.current.lastY;
+      
+      const targetPan = Math.min(100, Math.max(-100, ptzRef.current.pan + dx * 0.5));
+      const targetTilt = Math.min(100, Math.max(-100, ptzRef.current.tilt - dy * 0.5));
+      
+      const dPan = targetPan - ptzRef.current.pan;
+      const dTilt = targetTilt - ptzRef.current.tilt;
+      
+      if (Math.abs(dPan) > 1 || Math.abs(dTilt) > 1) {
+        dispatch(ptzNudged({ dPan, dTilt, dZoom: 0 }));
+        sendPtz(targetPan, targetTilt, ptzRef.current.zoom);
+        touchState.current.lastX = e.touches[0].clientX;
+        touchState.current.lastY = e.touches[0].clientY;
+      }
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    touchState.current.isPanning = false;
+    touchState.current.initialDistance = 0;
+  };
 
   const [chatInput, setChatInput] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -132,7 +203,14 @@ export default function WebRTCPanel() {
 
       <div className="webrtc-body">
         <div className="webrtc-main">
-          <div className="video-grid">
+          <div 
+            className="video-grid"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            style={{ touchAction: isAdmin ? 'none' : 'auto' }}
+          >
             <div className="video-tile">
               <video ref={setLocalVideoEl} autoPlay muted playsInline className="video-el" style={ptzStyle} />
               <span className="video-label">
