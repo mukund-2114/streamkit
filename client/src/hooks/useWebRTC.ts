@@ -30,6 +30,10 @@ export function useWebRTC() {
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [remoteMediaStates, setRemoteMediaStates] = useState<Record<string, { isVideoEnabled: boolean; isAudioEnabled: boolean }>>({});
+
+  const isVideoEnabledRef = useRef(true);
+  const isAudioEnabledRef = useRef(true);
 
   const isAdmin = adminId === clientId;
 
@@ -49,18 +53,33 @@ export function useWebRTC() {
     localStreamRef.current?.getVideoTracks().forEach((t) => {
       t.enabled = !t.enabled;
     });
-    setIsVideoEnabled((prev) => !prev);
-  }, []);
+    setIsVideoEnabled((prev) => {
+      const next = !prev;
+      isVideoEnabledRef.current = next;
+      const payload = JSON.stringify({ type: "media-state", from: clientId, isVideoEnabled: next, isAudioEnabled: isAudioEnabledRef.current });
+      dataChannelsRef.current.forEach((dc) => { if (dc.readyState === "open") dc.send(payload); });
+      return next;
+    });
+  }, [clientId]);
 
   const toggleAudio = useCallback(() => {
     localStreamRef.current?.getAudioTracks().forEach((t) => {
       t.enabled = !t.enabled;
     });
-    setIsAudioEnabled((prev) => !prev);
-  }, []);
+    setIsAudioEnabled((prev) => {
+      const next = !prev;
+      isAudioEnabledRef.current = next;
+      const payload = JSON.stringify({ type: "media-state", from: clientId, isVideoEnabled: isVideoEnabledRef.current, isAudioEnabled: next });
+      dataChannelsRef.current.forEach((dc) => { if (dc.readyState === "open") dc.send(payload); });
+      return next;
+    });
+  }, [clientId]);
 
   const setupDataChannel = useCallback((dc: RTCDataChannel, remoteClientId: string) => {
-    dc.onopen = () => dataChannelsRef.current.set(remoteClientId, dc);
+    dc.onopen = () => {
+      dataChannelsRef.current.set(remoteClientId, dc);
+      dc.send(JSON.stringify({ type: "media-state", from: clientId, isVideoEnabled: isVideoEnabledRef.current, isAudioEnabled: isAudioEnabledRef.current }));
+    };
     dc.onclose = () => dataChannelsRef.current.delete(remoteClientId);
     dc.onmessage = (event) => {
       try {
@@ -72,6 +91,11 @@ export function useWebRTC() {
             if (data.isTyping) return prev.includes(data.from) ? prev : [...prev, data.from];
             return prev.filter((u) => u !== data.from);
           });
+        } else if (data.type === "media-state") {
+          setRemoteMediaStates((prev) => ({
+            ...prev,
+            [data.from]: { isVideoEnabled: data.isVideoEnabled, isAudioEnabled: data.isAudioEnabled },
+          }));
         }
       } catch {
         // Fallback for old messages
@@ -272,5 +296,6 @@ export function useWebRTC() {
     sendChatMessage,
     typingUsers,
     sendTyping,
+    remoteMediaStates,
   };
 }

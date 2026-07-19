@@ -38,5 +38,6 @@ export interface ChatMessage {
 
 export type DataChannelMessage =
   | { type: "chat"; message: ChatMessage }
-  | { type: "typing"; from: string; isTyping: boolean };
+  | { type: "typing"; from: string; isTyping: boolean }
+  | { type: "media-state"; from: string; isVideoEnabled: boolean; isAudioEnabled: boolean };
 

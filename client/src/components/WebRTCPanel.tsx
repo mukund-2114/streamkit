@@ -65,6 +65,7 @@ export default function WebRTCPanel() {
     sendChatMessage,
     typingUsers,
     sendTyping,
+    remoteMediaStates,
   } = useWebRTC();
 
   const typingTimeoutRef = useRef<number | null>(null);
@@ -144,6 +145,8 @@ export default function WebRTCPanel() {
             {Object.entries(remoteStreams).map(([id, stream]) => {
               const participant = session.participants.find(p => p.clientId === id);
               const displayName = participant ? participant.displayName : `Peer ${id.slice(-4)}`;
+              const mediaState = remoteMediaStates[id] || { isVideoEnabled: true, isAudioEnabled: true };
+              
               return (
                 <div className="video-tile" key={id}>
                   <video
@@ -159,7 +162,11 @@ export default function WebRTCPanel() {
                     className="video-el"
                     style={ptzStyle}
                   />
-                  <span className="video-label">{displayName}</span>
+                  {!mediaState.isVideoEnabled && <div className="video-off-overlay">Camera off</div>}
+                  <span className="video-label">
+                    {displayName}
+                    {!mediaState.isAudioEnabled && " · muted"}
+                  </span>
                 </div>
               );
             })}
