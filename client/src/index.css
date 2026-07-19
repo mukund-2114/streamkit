@@ -682,4 +682,18 @@ body {
     flex: 1;
     text-align: center;
   }
+
+  :fullscreen .video-grid {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  :fullscreen .ptz-controls {
+    display: none;
+  }
+
+  :fullscreen .media-controls {
+    margin-top: auto;
+    margin-bottom: 0;
+  }
 }
