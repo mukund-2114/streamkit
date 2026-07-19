@@ -209,6 +209,8 @@ export default function WebRTCPanel() {
   const [chatInput, setChatInput] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showSecretPrompt, setShowSecretPrompt] = useState(false);
+  const [secretInput, setSecretInput] = useState("");
 
   const ptzStyle: React.CSSProperties = {
     transform: `scale(${zoom}) translate(${pan * 0.3}%, ${-tilt * 0.3}%)`,
@@ -403,8 +405,7 @@ export default function WebRTCPanel() {
               <button
                 className="media-btn media-btn--on"
                 onClick={() => {
-                  const code = prompt("Enter secret code to claim admin:");
-                  if (code) claimAdmin(code);
+                  setShowSecretPrompt(true);
                 }}
                 title="Claim Admin"
                 aria-label="Claim Admin"
@@ -468,6 +469,41 @@ export default function WebRTCPanel() {
           </div>
         )}
       </div>
+
+      {showSecretPrompt && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: 'var(--panel)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '280px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px' }}>Claim Admin Control</h3>
+            <input 
+              type="password" 
+              placeholder="Enter secret code" 
+              value={secretInput}
+              onChange={(e) => setSecretInput(e.target.value)}
+              style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '14px', outline: 'none' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  claimAdmin(secretInput);
+                  setShowSecretPrompt(false);
+                  setSecretInput("");
+                }
+              }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button onClick={() => { setShowSecretPrompt(false); setSecretInput(""); }} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '13px', padding: '6px 12px' }}>Cancel</button>
+              <button onClick={() => {
+                claimAdmin(secretInput);
+                setShowSecretPrompt(false);
+                setSecretInput("");
+              }} style={{ background: 'var(--accent)', border: 'none', color: '#fff', padding: '6px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>Claim</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
