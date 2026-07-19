@@ -8,7 +8,7 @@ import JoinPanel from "./components/JoinPanel";
 type Tab = "hls" | "webrtc";
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("hls");
+  const [tab, setTab] = useState<Tab>("webrtc");
   const hasJoined = useAppSelector((s) => s.session.hasJoined);
 
   return (
@@ -22,11 +22,11 @@ export default function App() {
       </header>
 
       <nav className="tabs">
-        <button className={tab === "hls" ? "active" : ""} onClick={() => setTab("hls")}>
-          Recorded (HLS)
-        </button>
         <button className={tab === "webrtc" ? "active" : ""} onClick={() => setTab("webrtc")}>
           Live (WebRTC)
+        </button>
+        <button className={tab === "hls" ? "active" : ""} onClick={() => setTab("hls")}>
+          Recorded (HLS)
         </button>
       </nav>
 
