@@ -230,6 +230,11 @@ export default function WebRTCPanel() {
           videoEl.muted = isHidden;
         }
       });
+      if (!isHidden) {
+        document.querySelectorAll<HTMLVideoElement>('.video-el').forEach(v => {
+          v.play().catch(() => {});
+        });
+      }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
