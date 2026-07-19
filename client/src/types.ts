@@ -36,3 +36,7 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export type DataChannelMessage =
+  | { type: "chat"; message: ChatMessage }
+  | { type: "typing"; from: string; isTyping: boolean };
+

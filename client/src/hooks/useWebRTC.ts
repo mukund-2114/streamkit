@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { connectionStatusChanged, sessionStateReceived } from "../store/sessionSlice";
 import { ptzMoved } from "../store/ptzSlice";
-import type { ClientMessage, ServerMessage, ChatMessage } from "../types";
+import type { ClientMessage, ServerMessage, ChatMessage, DataChannelMessage } from "../types";
 
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const SIGNALING_URL = `${wsProtocol}//${window.location.host}/ws`;
@@ -29,6 +29,7 @@ export function useWebRTC() {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
   const isAdmin = adminId === clientId;
 
@@ -62,8 +63,21 @@ export function useWebRTC() {
     dc.onopen = () => dataChannelsRef.current.set(remoteClientId, dc);
     dc.onclose = () => dataChannelsRef.current.delete(remoteClientId);
     dc.onmessage = (event) => {
-      const msg: ChatMessage = JSON.parse(event.data);
-      setChatMessages((prev) => [...prev, msg]);
+      try {
+        const data: DataChannelMessage = JSON.parse(event.data);
+        if (data.type === "chat") {
+          setChatMessages((prev) => [...prev, data.message]);
+        } else if (data.type === "typing") {
+          setTypingUsers((prev) => {
+            if (data.isTyping) return prev.includes(data.from) ? prev : [...prev, data.from];
+            return prev.filter((u) => u !== data.from);
+          });
+        }
+      } catch {
+        // Fallback for old messages
+        const msg: ChatMessage = JSON.parse(event.data);
+        if (msg.text) setChatMessages((prev) => [...prev, msg]);
+      }
     };
   }, []);
 
@@ -78,12 +92,22 @@ export function useWebRTC() {
         timestamp: Date.now(),
       };
       setChatMessages((prev) => [...prev, msg]);
-      const payload = JSON.stringify({ ...msg, fromSelf: false });
+      const payload = JSON.stringify({ type: "chat", message: { ...msg, fromSelf: false } });
       dataChannelsRef.current.forEach((dc) => {
         if (dc.readyState === "open") dc.send(payload);
       });
     },
     [displayName],
+  );
+
+  const sendTyping = useCallback(
+    (isTyping: boolean) => {
+      const payload = JSON.stringify({ type: "typing", from: displayName, isTyping });
+      dataChannelsRef.current.forEach((dc) => {
+        if (dc.readyState === "open") dc.send(payload);
+      });
+    },
+    [displayName]
   );
 
   const createPeerConnection = useCallback(
@@ -246,5 +270,7 @@ export function useWebRTC() {
     toggleAudio,
     chatMessages,
     sendChatMessage,
+    typingUsers,
+    sendTyping,
   };
 }

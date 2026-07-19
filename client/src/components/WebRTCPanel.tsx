@@ -63,7 +63,11 @@ export default function WebRTCPanel() {
     toggleAudio,
     chatMessages,
     sendChatMessage,
+    typingUsers,
+    sendTyping,
   } = useWebRTC();
+
+  const typingTimeoutRef = useRef<number | null>(null);
 
   const session = useAppSelector((s) => s.session);
   const connectionStatus = session.connectionStatus;
@@ -102,7 +106,16 @@ export default function WebRTCPanel() {
   const handleSend = useCallback(() => {
     sendChatMessage(chatInput);
     setChatInput("");
-  }, [chatInput, sendChatMessage]);
+    sendTyping(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  }, [chatInput, sendChatMessage, sendTyping]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChatInput(e.target.value);
+    sendTyping(true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = window.setTimeout(() => sendTyping(false), 2000);
+  };
 
   const formatTime = (ts: number) =>
     new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -197,12 +210,15 @@ export default function WebRTCPanel() {
             ))}
             <div ref={chatEndRef} />
           </div>
+          <div className="typing-indicator" style={{ minHeight: "20px", padding: "0.25rem 1rem", fontSize: "0.85rem", color: "var(--text-secondary)", fontStyle: "italic", display: "flex", alignItems: "center" }}>
+            {typingUsers.length > 0 && `${typingUsers.join(", ")} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`}
+          </div>
           <div className="chat-input-row">
             <input
               type="text"
               placeholder="Send a message…"
               value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               maxLength={300}
             />
